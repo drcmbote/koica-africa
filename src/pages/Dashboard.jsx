@@ -84,10 +84,10 @@ function Dashboard() {
           K98: parseFloat(sheet['K98']?.v || 0), U98: parseFloat(sheet['U98']?.v || 0),
           K109: parseFloat(sheet['K109']?.v || 0), U109: parseFloat(sheet['U109']?.v || 0),
           K119: parseFloat(sheet['K119']?.v || 0), U119: parseFloat(sheet['U119']?.v || 0),
-          K128: parseFloat(sheet['K128']?.v || 0), U128: parseFloat(sheet['K128']?.v || 0),
+          K128: parseFloat(sheet['K128']?.v || 0), U128: parseFloat(sheet['U128']?.v || 0),
           K136: parseFloat(sheet['K136']?.v || 0), U136: parseFloat(sheet['U136']?.v || 0),
-          K141: parseFloat(sheet['K141']?.v || 0), U141: parseFloat(sheet['K141']?.v || 0),
-          K147: parseFloat(sheet['K147']?.v || 0), U147: parseFloat(sheet['K147']?.v || 0),
+          K141: parseFloat(sheet['K141']?.v || 0), U141: parseFloat(sheet['U141']?.v || 0),
+          K147: parseFloat(sheet['K147']?.v || 0), U147: parseFloat(sheet['U147']?.v || 0),
           K155: parseFloat(sheet['K155']?.v || 0), U155: parseFloat(sheet['U155']?.v || 0),
           K157: parseFloat(sheet['K157']?.v || 0), U157: parseFloat(sheet['U157']?.v || 0),
           K164: parseFloat(sheet['K164']?.v || 0), U164: parseFloat(sheet['U164']?.v || 0),
@@ -99,6 +99,7 @@ function Dashboard() {
           K178: parseFloat(sheet['K178']?.v || 0), U178: parseFloat(sheet['U178']?.v || 0),
           K179: parseFloat(sheet['K179']?.v || 0), U179: parseFloat(sheet['U179']?.v || 0),
         };
+        console.log('Uploaded Data:', { africa1: africa1Data, africa2: africa2Data }); // 디버깅 로그
         setData({ africa1: africa1Data, africa2: africa2Data });
       };
       reader.readAsBinaryString(latestFile);
@@ -124,6 +125,7 @@ function Dashboard() {
       backgroundColor: ['#4CAF50', '#B0BEC5'],
     }],
   };
+  console.log('Africa1 Pie Data:', africa1PieData); // 디버깅 로그
 
   const africa2PieData = {
     labels: ['집행액', '잔여 예산'],
@@ -132,6 +134,7 @@ function Dashboard() {
       backgroundColor: ['#D32F2F', '#B0BEC5'],
     }],
   };
+  console.log('Africa2 Pie Data:', africa2PieData); // 디버깅 로그
 
   const progressData = {
     labels: team === 'africa1' ? ['에티오피아', '르완다', '우간다', '탄자니아', '케냐', '수단', '마다가스카르', '말라위', 'AU', '모잠비크'] : ['가나', '세네갈', '이집트', 'DR콩고', '나이지리아', '카메룬', '코트디부아르', '앙골라', '모로코', '알제리', '튀니지', '토고'],
