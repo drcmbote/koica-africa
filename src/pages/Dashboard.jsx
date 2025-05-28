@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Pie, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import * as XLSX from 'xlsx';
+import { put } from '@vercel/blob'; // Vercel Blob SDK
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend, ChartDataLabels);
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -14,63 +16,102 @@ function Dashboard() {
   const [endDate, setEndDate] = useState(null);
   const [files, setFiles] = useState([]);
   const [message, setMessage] = useState('');
-  const [data, setData] = useState({});
+  const [data, setData] = useState({ africa1: {}, africa2: {} });
   const [activeMenu, setActiveMenu] = useState(null);
   const [team, setTeam] = useState('africa1');
+  const [blobUrls, setBlobUrls] = useState(() => {
+    const savedUrls = localStorage.getItem('blobUrls');
+    return savedUrls ? JSON.parse(savedUrls) : {};
+  });
 
   useEffect(() => {
-    fetchLatestData();
-  }, []);
+    localStorage.setItem('blobUrls', JSON.stringify(blobUrls));
+  }, [blobUrls]);
 
-  const fetchLatestData = () => {
-    const latestData = {
-      africa1: {
-        K2: 1000000, U2: 400000,
-        K4: 100000, U4: 40000, K23: 150000, U23: 60000, K34: 200000, U34: 80000,
-        K48: 250000, U48: 100000, K61: 300000, U61: 120000, K68: 350000, U68: 140000,
-        K70: 400000, U70: 160000, K72: 450000, U72: 180000, K74: 500000, U74: 200000,
-        K76: 550000, U76: 220000, K83: 600000, U83: 240000, K88: 650000, U88: 260000,
-        K84: 150000, U84: 60000, K85: 150000, U85: 60000, K86: 150000, U86: 60000,
-        K87: 150000, U87: 60000, K89: 90000, U89: 36000, K90: 90000, U90: 36000,
-        K91: 90000, U91: 36000, K92: 90000, U92: 36000, K93: 90000, U93: 36000,
-        K94: 90000, U94: 36000, K95: 90000, U95: 36000,
-      },
-      africa2: {
-        K96: 2000000, U96: 800000, K98: 200000, U98: 80000, K109: 250000, U109: 100000,
-        K119: 300000, U119: 120000, K128: 350000, U128: 140000, K136: 400000, U136: 160000,
-        K141: 450000, U141: 180000, K147: 500000, U147: 200000, K155: 550000, U155: 220000,
-        K157: 600000, U157: 240000, K164: 650000, U164: 260000, K169: 700000, U169: 280000,
-        K180: 750000, U180: 300000, K175: 800000, U175: 320000, K176: 200000, U176: 80000,
-        K177: 200000, U177: 80000, K178: 200000, U178: 80000, K179: 200000, U179: 80000,
-      },
-    };
-    setData(latestData);
-  };
-
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const uploadedFiles = Array.from(e.target.files).slice(0, 30);
     if (uploadedFiles.length > 0) {
-      uploadedFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const workbook = XLSX.read(event.target.result, { type: 'binary' });
-          const sheetName = workbook.SheetNames[0];
-          const sheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(sheet);
-          setData(prev => ({ ...prev, ...jsonData }));
-        };
-        reader.readAsBinaryString(file);
+      const latestFile = uploadedFiles.sort((a, b) => b.name.localeCompare(a.name))[0];
+      setFiles(uploadedFiles);
+
+      // Vercel Blob에 파일 업로드
+      const blob = await put(latestFile.name, latestFile, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
       });
+
+      setBlobUrls((prev) => ({
+        ...prev,
+        [latestFile.name]: blob.url,
+      }));
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const workbook = XLSX.read(event.target.result, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        const africa1Data = {
+          K2: parseFloat(sheet['K2']?.v || 0),
+          U2: parseFloat(sheet['U2']?.v || 0),
+          K4: parseFloat(sheet['K4']?.v || 0), U4: parseFloat(sheet['U4']?.v || 0),
+          K23: parseFloat(sheet['K23']?.v || 0), U23: parseFloat(sheet['U23']?.v || 0),
+          K34: parseFloat(sheet['K34']?.v || 0), U34: parseFloat(sheet['U34']?.v || 0),
+          K48: parseFloat(sheet['K48']?.v || 0), U48: parseFloat(sheet['U48']?.v || 0),
+          K61: parseFloat(sheet['K61']?.v || 0), U61: parseFloat(sheet['U61']?.v || 0),
+          K68: parseFloat(sheet['K68']?.v || 0), U68: parseFloat(sheet['U68']?.v || 0),
+          K70: parseFloat(sheet['K70']?.v || 0), U70: parseFloat(sheet['U70']?.v || 0),
+          K72: parseFloat(sheet['K72']?.v || 0), U72: parseFloat(sheet['U72']?.v || 0),
+          K74: parseFloat(sheet['K74']?.v || 0), U74: parseFloat(sheet['U74']?.v || 0),
+          K76: parseFloat(sheet['K76']?.v || 0), U76: parseFloat(sheet['U76']?.v || 0),
+          K83: parseFloat(sheet['K83']?.v || 0), U83: parseFloat(sheet['U83']?.v || 0),
+          K88: parseFloat(sheet['K88']?.v || 0), U88: parseFloat(sheet['K88']?.v || 0),
+          K84: parseFloat(sheet['K84']?.v || 0), U84: parseFloat(sheet['K84']?.v || 0),
+          K85: parseFloat(sheet['K85']?.v || 0), U85: parseFloat(sheet['K85']?.v || 0),
+          K86: parseFloat(sheet['K86']?.v || 0), U86: parseFloat(sheet['K86']?.v || 0),
+          K87: parseFloat(sheet['K87']?.v || 0), U87: parseFloat(sheet['K87']?.v || 0),
+          K89: parseFloat(sheet['K89']?.v || 0), U89: parseFloat(sheet['K89']?.v || 0),
+          K90: parseFloat(sheet['K90']?.v || 0), U90: parseFloat(sheet['K90']?.v || 0),
+          K91: parseFloat(sheet['K91']?.v || 0), U91: parseFloat(sheet['K91']?.v || 0),
+          K92: parseFloat(sheet['K92']?.v || 0), U92: parseFloat(sheet['K92']?.v || 0),
+          K93: parseFloat(sheet['K93']?.v || 0), U93: parseFloat(sheet['K93']?.v || 0),
+          K94: parseFloat(sheet['K94']?.v || 0), U94: parseFloat(sheet['K94']?.v || 0),
+          K95: parseFloat(sheet['K95']?.v || 0), U95: parseFloat(sheet['K95']?.v || 0),
+        };
+        const africa2Data = {
+          K96: parseFloat(sheet['K96']?.v || 0),
+          U96: parseFloat(sheet['U96']?.v || 0),
+          K98: parseFloat(sheet['K98']?.v || 0), U98: parseFloat(sheet['U98']?.v || 0),
+          K109: parseFloat(sheet['K109']?.v || 0), U109: parseFloat(sheet['U109']?.v || 0),
+          K119: parseFloat(sheet['K119']?.v || 0), U119: parseFloat(sheet['U119']?.v || 0),
+          K128: parseFloat(sheet['K128']?.v || 0), U128: parseFloat(sheet['K128']?.v || 0),
+          K136: parseFloat(sheet['K136']?.v || 0), U136: parseFloat(sheet['U136']?.v || 0),
+          K141: parseFloat(sheet['K141']?.v || 0), U141: parseFloat(sheet['K141']?.v || 0),
+          K147: parseFloat(sheet['K147']?.v || 0), U147: parseFloat(sheet['K147']?.v || 0),
+          K155: parseFloat(sheet['K155']?.v || 0), U155: parseFloat(sheet['U155']?.v || 0),
+          K157: parseFloat(sheet['K157']?.v || 0), U157: parseFloat(sheet['U157']?.v || 0),
+          K164: parseFloat(sheet['K164']?.v || 0), U164: parseFloat(sheet['U164']?.v || 0),
+          K169: parseFloat(sheet['K169']?.v || 0), U169: parseFloat(sheet['U169']?.v || 0),
+          K180: parseFloat(sheet['K180']?.v || 0), U180: parseFloat(sheet['U180']?.v || 0),
+          K175: parseFloat(sheet['K175']?.v || 0), U175: parseFloat(sheet['U175']?.v || 0),
+          K176: parseFloat(sheet['K176']?.v || 0), U176: parseFloat(sheet['U176']?.v || 0),
+          K177: parseFloat(sheet['K177']?.v || 0), U177: parseFloat(sheet['U177']?.v || 0),
+          K178: parseFloat(sheet['K178']?.v || 0), U178: parseFloat(sheet['U178']?.v || 0),
+          K179: parseFloat(sheet['K179']?.v || 0), U179: parseFloat(sheet['U179']?.v || 0),
+        };
+        setData({ africa1: africa1Data, africa2: africa2Data });
+      };
+      reader.readAsBinaryString(latestFile);
       setMessage('성공적으로 업로드 되었습니다');
       setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const getBudgetData = (cell) => data[team]?.[cell] || 0;
-  const getExecutionData = (cell) => data[team]?.[cell] || 0;
+  const getBudgetData = (cell, teamData) => data[teamData]?.[cell] || 0;
+  const getExecutionData = (cell, teamData) => data[teamData]?.[cell] || 0;
 
-  const calculateDifference = (start, end, cell) => {
-    if (!start || !end) return getExecutionData(cell);
+  const calculateDifference = (start, end, cell, teamData) => {
+    if (!start || !end) return getExecutionData(cell, teamData);
     const startValue = data[`${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`]?.[cell] || 0;
     const endValue = data[`${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`]?.[cell] || 0;
     return endValue - startValue;
@@ -79,7 +120,7 @@ function Dashboard() {
   const africa1PieData = {
     labels: ['집행액', '잔여 예산'],
     datasets: [{
-      data: [calculateDifference(startDate, endDate, 'U2'), getBudgetData('K2') - calculateDifference(startDate, endDate, 'U2')],
+      data: [calculateDifference(startDate, endDate, 'U2', 'africa1'), getBudgetData('K2', 'africa1') - calculateDifference(startDate, endDate, 'U2', 'africa1')],
       backgroundColor: ['#4CAF50', '#B0BEC5'],
     }],
   };
@@ -87,8 +128,8 @@ function Dashboard() {
   const africa2PieData = {
     labels: ['집행액', '잔여 예산'],
     datasets: [{
-      data: [calculateDifference(startDate, endDate, 'U96'), getBudgetData('K96') - calculateDifference(startDate, endDate, 'U96')],
-      backgroundColor: ['#4CAF50', '#B0BEC5'],
+      data: [calculateDifference(startDate, endDate, 'U96', 'africa2'), getBudgetData('K96', 'africa2') - calculateDifference(startDate, endDate, 'U96', 'africa2')],
+      backgroundColor: ['#D32F2F', '#B0BEC5'],
     }],
   };
 
@@ -97,8 +138,8 @@ function Dashboard() {
     datasets: [{
       label: '집행률',
       data: (team === 'africa1' ? ['K4', 'K23', 'K34', 'K48', 'K61', 'K68', 'K70', 'K72', 'K74', 'K76'] : ['K98', 'K109', 'K119', 'K128', 'K136', 'K141', 'K147', 'K155', 'K157', 'K164', 'K169', 'K180']).map(cell => {
-        const budget = getBudgetData(cell);
-        const execution = calculateDifference(startDate, endDate, cell.replace('K', 'U'));
+        const budget = getBudgetData(cell, team);
+        const execution = calculateDifference(startDate, endDate, cell.replace('K', 'U'), team);
         return budget > 0 ? (execution / budget) * 100 : 0;
       }),
       backgroundColor: '#0288D1',
@@ -107,30 +148,71 @@ function Dashboard() {
 
   return (
     <div className="p-4">
-      <button onClick={() => navigate('/')} className="bg-red-500 text-white px-6 py-3 rounded mb-4">로그아웃</button>
-      <div className="mb-4">
+      <div className="flex justify-end mb-4">
+        <button onClick={() => navigate('/')} className="bg-red-500 text-white px-6 py-3 rounded">로그아웃</button>
+      </div>
+      <div className="mb-8 flex justify-center">
         <input type="file" multiple onChange={handleFileUpload} accept=".xls,.xlsx" className="mb-2" />
-        {message && <p className="text-green-600">{message}</p>}
-        <DatePicker selected={startDate} onChange={date => setStartDate(date)} dateFormat="yyyy-MM-dd" className="p-2 border rounded mr-2" placeholderText="시작일자" />
-        <DatePicker selected={endDate} onChange={date => setEndDate(date)} dateFormat="yyyy-MM-dd" className="p-2 border rounded mr-2" placeholderText="종료일자" />
-        <button onClick={fetchLatestData} className="bg-green-500 text-white px-6 py-3 rounded">검색</button>
       </div>
-      <div className="flex justify-center space-x-8 mb-4">
-        <button onClick={() => { setTeam('africa1'); setActiveMenu(null); }} className="bg-blue-500 text-white px-24 py-8 rounded text-4xl">아프리카1팀</button>
-        <button onClick={() => { setTeam('africa2'); setActiveMenu(null); }} className="bg-pink-500 text-white px-24 py-8 rounded text-4xl">아프리카2팀</button>
+      <div className="mb-4 text-center">
+        <h3 className="text-lg font-bold">업로드된 파일 목록</h3>
+        <ul>
+          {Object.keys(blobUrls).map((fileName) => (
+            <li key={fileName}>{fileName}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="mb-8 flex justify-center space-x-2">
+        <DatePicker selected={startDate} onChange={date => setStartDate(date)} dateFormat="yyyy-MM-dd" className="p-2 border rounded" placeholderText="시작일자" />
+        <DatePicker selected={endDate} onChange={date => setEndDate(date)} dateFormat="yyyy-MM-dd" className="p-2 border rounded" placeholderText="종료일자" />
+        <button onClick={() => {}} className="bg-green-500 text-white px-6 py-3 rounded">검색</button>
+      </div>
+      <div className="flex flex-col items-center space-y-16 mt-8">
+        <button onClick={() => setActiveMenu(null)} className="bg-blue-500 text-white px-24 py-8 rounded text-4xl">아프리카1팀</button>
+        <div className="text-center">
+          <Pie
+            data={africa1PieData}
+            options={{
+              plugins: {
+                legend: { position: 'top' },
+                tooltip: { enabled: true },
+                datalabels: {
+                  color: '#000',
+                  formatter: (value, ctx) => {
+                    const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1) + '%';
+                    const amount = (value / 1000000).toFixed(1); // 백만원 단위
+                    return ctx.label === '잔여 예산' ? `${percentage}\n${amount}백만 원` : '';
+                  },
+                },
+              },
+            }}
+          />
+        </div>
+        <button onClick={() => setActiveMenu(null)} className="bg-pink-500 text-white px-24 py-8 rounded text-4xl">아프리카2팀</button>
+        <div className="text-center">
+          <Pie
+            data={africa2PieData}
+            options={{
+              plugins: {
+                legend: { position: 'top' },
+                tooltip: { enabled: true },
+                datalabels: {
+                  color: '#000',
+                  formatter: (value, ctx) => {
+                    const total = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                    const percentage = ((value / total) * 100).toFixed(1) + '%';
+                    const amount = (value / 1000000).toFixed(1); // 백만원 단위
+                    return ctx.label === '잔여 예산' ? `${percentage}\n${amount}백만 원` : '';
+                  },
+                },
+              },
+            }}
+          />
+        </div>
       </div>
       {team === 'africa1' && (
-        <div className="text-center">
-          <Pie data={africa1PieData} />
-        </div>
-      )}
-      {team === 'africa2' && (
-        <div className="text-center">
-          <Pie data={africa2PieData} />
-        </div>
-      )}
-      {team === 'africa1' && (
-        <div className="flex">
+        <div className="flex mt-4">
           <div className="w-1/4">
             <button onClick={() => setActiveMenu('country')} className="bg-gray-200 p-4 w-full mb-2">국별협력사업</button>
             <button onClick={() => setActiveMenu('effect')} className="bg-gray-200 p-4 w-full mb-2">사업효과성제고비</button>
@@ -144,7 +226,7 @@ function Dashboard() {
         </div>
       )}
       {team === 'africa2' && (
-        <div className="flex">
+        <div className="flex mt-4">
           <div className="w-1/4">
             <button onClick={() => setActiveMenu('country')} className="bg-gray-200 p-4 w-full mb-2">국별협력사업</button>
             <button onClick={() => setActiveMenu('effect')} className="bg-gray-200 p-4 w-full mb-2">사업효과성제고비</button>
